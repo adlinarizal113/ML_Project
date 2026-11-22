@@ -1,123 +1,95 @@
-                    else:
-                        st.error(
-                            f"Unsupported input type: {name}"
-                        )
-                        st.stop()
+from pathlib import Path
+import json
 
-                submitted = st.form_submit_button(
-                    "Predict Severity"
-                )
+import pandas as pd
+import streamlit as st
 
-            if submitted:
+# =====================================
+# 1. FILE PATHS AND CONFIGURATION
+# =====================================
 
-                # Load only a trusted model from the team.
-                pipeline = joblib.load(MODEL)
+ROOT = Path(__file__).resolve().parent
 
-                sample = pd.DataFrame(
-                    [values],
-                    columns=[
-                        item["name"]
-                        for item in features
-                    ]
-                )
+DATA = ROOT / "data" / "miros_cleaned.csv"
+DATA_DIR = ROOT / "data"
+EXCEL = ROOT / "MIROS_original.xlsx"
 
-                prediction = pipeline.predict(sample)[0]
+MODEL = ROOT / "model" / "pipeline.joblib"
+SCHEMA = ROOT / "model" / "input_schema.json"
 
-                st.success(
-                    f"Predicted Accident Severity: {prediction}"
-                )
+TARGET = "Type of Crash"
 
-                if hasattr(pipeline, "predict_proba"):
+st.set_page_config(
+    page_title="MIROS Accident Severity",
+    page_icon="🚗",
+    layout="wide"
+)
 
-                    probabilities = pipeline.predict_proba(
-                        sample
-                    )[0]
+st.title("🚗 Road Accident Severity Prediction")
+st.caption(
+    "Pahang, Malaysia | Machine Learning Project | Prototype"
+)
 
-                    labels = getattr(
-                        pipeline,
-                        "classes_",
-                        None
-                    )
+# =====================================
+# 2. LOAD DATASET
+# =====================================
 
-                    if labels is not None:
+@st.cache_data(show_spinner=False)
+def load_csv(path):
+    return pd.read_csv(path)
 
-                        st.subheader(
-                            "Prediction Probabilities"
-                        )
 
-                        probability_data = pd.Series(
-                            probabilities,
-                            index=[
-                                str(label)
-                                for label in labels
-                            ]
-                        )
+@st.cache_data(show_spinner=False)
+def load_excel(path):
+    book = pd.ExcelFile(path)
+    sheet = "undergrad" if "undergrad" in book.sheet_names else book.sheet_names[0]
+    return pd.read_excel(book, sheet_name=sheet)
 
-                        st.bar_chart(probability_data)
 
-                st.caption(
-                    "Educational prediction only. "
-                    "Not an official road safety assessment."
-                )
+def get_dataset():
+    if DATA.exists():
+        return load_csv(DATA), "Cleaned Dataset"
 
-        except Exception as error:
+    if EXCEL.exists():
+        return load_excel(EXCEL), "Original MIROS Dataset (Testing)"
 
-            st.error(
-                f"Model integration error: {error}"
+    # Support the original MIROS filename in either repository root or data/.
+    candidates = []
+    for folder in (ROOT, DATA_DIR):
+        if folder.exists():
+            candidates.extend(
+                p for p in folder.iterdir()
+                if p.is_file()
+                and p.suffix.lower() in {".xlsx", ".xls"}
+                and "miros" in p.name.lower()
+                and not p.name.startswith("~$")
             )
+    if candidates:
+        chosen = sorted(candidates, key=lambda p: str(p).lower())[0]
+        return load_excel(chosen), "Original MIROS Dataset (Testing)"
 
-            st.info(
-                "Please ask Nurin to verify the model, "
-                "input features and package versions."
-            )
+    return None, None
 
 
 # =====================================
-# 6. ABOUT PROJECT
+# 3. SIDEBAR NAVIGATION
 # =====================================
 
-else:
+st.sidebar.title("Navigation")
 
-    st.header("ℹ️ About This Project")
+page = st.sidebar.radio(
+    "Select Page",
+    ["Dashboard", "Prediction", "About"]
+)
 
-    st.subheader("Project Title")
+st.sidebar.divider()
+st.sidebar.caption("MIROS Machine Learning Project")
 
-    st.write(
-        "Road Accident Severity Prediction "
-        "Using Machine Learning in Pahang, Malaysia"
-    )
 
-    st.subheader("Project Objective")
+# =====================================
+# 4. DASHBOARD
+# =====================================
 
-    st.write(
-        "This project aims to develop a machine learning "
-        "system to classify road accident severity using "
-        "Malaysian MIROS accident data."
-    )
+if page == "Dashboard":
 
-    st.subheader("Main Dataset")
-
-    st.write(
-        "MIROS-UMP DAX Challenge 2026 Dataset"
-    )
-
-    st.subheader("Target Variable")
-
-    st.write("Type of Crash (Proposed)")
-
-    st.subheader("Project Team")
-
-    st.write("Project Leader: Gabriella")
-    st.write("Data Engineer: Gabriellyn")
-    st.write("Data Analyst: Zul")
-    st.write("ML Engineer: Nurin")
-    st.write("System Developer: Adlina")
-
-    st.divider()
-
-    st.info(
-        "This system classifies accident severity "
-        "within the scope of the training data. "
-        "It does not predict whether an accident "
-        "will occur."
-    )
+    st.header("📊 Road Accident Dashboard")
