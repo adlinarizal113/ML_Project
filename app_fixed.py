@@ -1,4 +1,3 @@
-python -m streamlit run app.py
 from pathlib import Path
 import json
 
