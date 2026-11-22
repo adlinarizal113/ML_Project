@@ -47,22 +47,35 @@ def load_excel(path):
 
 
 def get_dataset():
-    if DATA.exists():
-        return load_csv(DATA), "Cleaned Dataset"
+    """Prefer cleaned CSV; otherwise find the original MIROS workbook."""
+    if DATA.is_file():
+        return load_csv(DATA), f"Cleaned Dataset: {DATA.relative_to(ROOT)}"
 
-    if EXCEL.exists():
-        return load_excel(EXCEL), "Original MIROS Dataset (Testing)"
+    candidates = [
+        ROOT / "MIROS_original.xlsx",  # GitHub repository root
+        DATA_DIR / "MIROS_original.xlsx",
+        EXCEL,  # Original filename in data/
+        ROOT / "MIROS-UMP DAX Challenge 2026 Dataset_updated.xlsx",
+    ]
 
-    # Find other MIROS Excel filenames without renaming the original file.
-    if DATA_DIR.exists():
-        candidates = sorted(
-            (p for p in DATA_DIR.iterdir()
-             if p.is_file() and p.suffix.lower() in {".xlsx", ".xls"}
-             and "miros" in p.name.lower() and not p.name.startswith("~$")),
-            key=lambda p: p.name.lower()
-        )
-        if candidates:
-            return load_excel(candidates[0]), "Original MIROS Dataset (Testing)"
+    # Also allow other MIROS workbook names in the root or data/ folder.
+    for folder in (ROOT, DATA_DIR):
+        if folder.is_dir():
+            candidates.extend(sorted(
+                p for p in folder.iterdir()
+                if p.is_file()
+                and p.suffix.lower() in (".xlsx", ".xls")
+                and "miros" in p.name.lower()
+                and not p.name.startswith("~$")
+            ))
+
+    seen = set()
+    for path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.is_file():
+            return load_excel(path), f"Original MIROS Dataset (Testing): {path.relative_to(ROOT)}"
 
     return None, None
 
@@ -106,14 +119,17 @@ if page == "Dashboard":
         st.warning("Dataset is not available yet.")
 
         st.info(
-            "Add your MIROS Excel file into the data folder "
-            "for testing, or wait for Gabriellyn to provide "
-            "miros_cleaned.csv."
+            "No MIROS file found. Upload MIROS_original.xlsx to the "
+            "GitHub repository root or data/ folder."
         )
+        with st.expander("Dataset file diagnostics"):
+            st.write("Application folder:", str(ROOT))
+            st.write("Files in repository root:", sorted(p.name for p in ROOT.iterdir()))
+            st.write("Files in data folder:", sorted(p.name for p in DATA_DIR.iterdir()) if DATA_DIR.exists() else "Folder not found")
 
     else:
 
-        if source == "Original MIROS Dataset (Testing)":
+        if source.startswith("Original MIROS Dataset (Testing)"):
             st.info(
                 "Currently using the original MIROS dataset "
                 "for interface testing. This is not the final "
@@ -122,6 +138,7 @@ if page == "Dashboard":
         else:
             st.success("Cleaned dataset loaded successfully.")
 
+        st.caption(f"Loaded source: {source}")
         # DATASET OVERVIEW
         st.subheader("Dataset Overview")
 
