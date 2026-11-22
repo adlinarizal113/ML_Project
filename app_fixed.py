@@ -12,7 +12,7 @@ ROOT = Path(__file__).parent
 
 DATA = ROOT / "data" / "miros_cleaned.csv"
 DATA_DIR = ROOT / "data"
-EXCEL = DATA_DIR / "MIROS-UMP DAX Challenge 2026 Dataset_updated.xlsx"
+EXCEL = ROOT / "MIROS_original.xlsx"
 
 MODEL = ROOT / "model" / "pipeline.joblib"
 SCHEMA = ROOT / "model" / "input_schema.json"
